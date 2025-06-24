@@ -119,39 +119,47 @@ export default function Home() {
           <p className="text-gray-400 text-lg mb-16" style={{ fontFamily: "var(--font-poppins)" }}>
             Track how your links are performing across the web with <br /> our advanced statistics dashboard.
           </p>
-          <div className="flex justify-center gap-8">
+          <div className="relative flex justify-center gap-8">
+            {/* Connection line between cards */}
+            <div
+              className="absolute top-2/5 h-2 bg-[#2acfcf] z-0 transform -translate-y-1/2"
+              style={{
+                left:  "calc(50% - 200px)",    // 200px = half your card’s width (300px/2) + half the gap (32px/2)
+                right: "calc(50% - 200px)",
+              }}
+            />
             {/* Card 1 */}
-            <div className="bg-white rounded-lg shadow-md p-8 max-w-xs h-[320px] flex flex-col justify-between relative">
+            <div className="bg-white rounded-lg shadow-md p-8 max-w-xs h-[320px] flex flex-col justify-between relative z-10">
               <div>
-                <div className="bg-[#3b3054] w-16 h-16 flex items-center justify-center rounded-full absolute -top-8 left-1/2 -translate-x-1/2">
+                <div className="bg-[#3b3054] w-16 h-16 flex items-center justify-center rounded-full absolute -top-8 left-1/2 -translate-x-1/2 z-10">
                   <Image src="/icon-brand-recognition.svg" alt="Brand Recognition" width={32} height={32} className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-bold mt-10 mb-4">Brand Recognition</h3>
-                <p className="text-gray-400 text-base">
+                <h3 className="text-xl font-bold text-black mt-10 mb-4" style={{ fontFamily: "var(--font-poppins)" }}>Brand Recognition</h3>
+                <p className="text-gray-400 text-base" style={{ fontFamily: "var(--font-poppins)" }}>
                   Boost your brand recognition with each click. Generic links don’t mean a thing. Branded links help instill confidence in your content.
                 </p>
               </div>
             </div>
             {/* Card 2 */}
-            <div className="bg-white rounded-lg shadow-md p-8 max-w-xs h-[320px] flex flex-col justify-between relative mt-12">
+            <div className="bg-white rounded-lg shadow-md p-8 max-w-xs h-[320px] flex flex-col justify-between relative mt-12 z-10">
               <div>
-                <div className="bg-[#3b3054] w-16 h-16 flex items-center justify-center rounded-full absolute -top-8 left-1/2 -translate-x-1/2">
+                <div className="bg-[#3b3054] w-16 h-16 flex items-center justify-center rounded-full absolute -top-8 left-1/2 -translate-x-1/2 z-10">
                   <Image src="/icon-detailed-records.svg" alt="Detailed Records" width={32} height={32} className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-bold mt-10 mb-4">Detailed Records</h3>
-                <p className="text-gray-400 text-base">
+                <h3 className="text-xl font-bold mt-10 mb-4 text-black" style={{ fontFamily: "var(--font-poppins)" }}>Detailed Records</h3>
+                <p className="text-gray-400 text-base" style={{ fontFamily: "var(--font-poppins)" }}>
                   Gain insights into who is clicking your links. Knowing when and where people engage with your content helps inform better decisions.
                 </p>
               </div>
             </div>
             {/* Card 3 */}
-            <div className="bg-white rounded-lg shadow-md p-8 max-w-xs h-[320px] flex flex-col justify-between relative mt-24">
+            <div className="bg-white rounded-lg shadow-md p-8 max-w-xs h-[320px] flex flex-col justify-between relative mt-24 z-10">
               <div>
-                <div className="bg-[#3b3054] w-16 h-16 flex items-center justify-center rounded-full absolute -top-8 left-1/2 -translate-x-1/2">
+                <div className="bg-[#3b3054] w-16 h-16 flex items-center justify-center rounded-full absolute -top-8 left-1/2 -translate-x-1/2 z-10">
                   <Image src="/icon-fully-customizable.svg" alt="Fully Customizable" width={32} height={32} className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-bold mt-10 mb-4">Fully Customizable</h3>
-                <p className="text-gray-400 text-base">
+                <h3 className="text-xl font-bold mt-10 mb-4 text-black" style={{ fontFamily: "var(--font-poppins)" }}>Fully Customizable</h3>
+                <p className="text-gray-400 text-base" style={{ fontFamily: "var(--font-poppins)" }}>
                   Improve brand awareness and content discoverability through customizable links, supercharging audience engagement.
                 </p>
               </div>
