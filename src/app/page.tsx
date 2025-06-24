@@ -189,9 +189,9 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="bg-[#232127] text-white py-16 px-16">
-        <div className="flex justify-between max-w-7xl mx-auto">
+        <div className="flex justify-between max-w-7xl mx-auto pl-25 w-full">
           <div>
-            <div className="text-2xl font-bold mb-8">Shortly</div>
+            <div className="text-3xl font-bold mb-8"><a href="#">Shortly</a></div>
           </div>
           <div className="flex gap-24">
             <div>
