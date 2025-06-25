@@ -6,12 +6,46 @@ import Link from "next/link";
 
 export default function Home() {
   const [activeNav, setActiveNav] = useState("Features");
+  const [url, setUrl] = useState("");
+  const [links, setLinks] = useState<{ original: string; short: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const navLinks = [
     { label: "Features", href: "#" },
     { label: "Pricing", href: "#" },
     { label: "Resources", href: "#" },
   ];
+
+  async function handleShorten() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/shorten", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ originalUrl: url }),
+      });
+      const data = await res.json();
+      if (res.ok && data.short) {
+        setLinks([{ original: url, short: `${window.location.origin}/api/${data.short}` }, ...links]);
+        setUrl("");
+      } else {
+        setError(data.error || "Failed to shorten link.");
+      }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e) {
+      setError("Something went wrong.");
+    }
+    setLoading(false);
+  }
+
+  function handleCopy(shortUrl: string, idx: number) {
+    navigator.clipboard.writeText(shortUrl);
+    setCopiedIndex(idx);
+    setTimeout(() => setCopiedIndex(null), 1500);
+  }
 
   return (
     <div className="bg-[#f0f1f6] min-h-screen font-sans">
@@ -84,28 +118,76 @@ export default function Home() {
       </section>
 
       {/* Shorten Input */}
-      <section className="relative z-10 flex justify-center -mt-8 mb-12 px-2 sm:px-4">
+      <section className="relative z-10 flex justify-center -mt-8 mb-8 px-2 sm:px-4">
         <div
-          className="w-full max-w-4xl rounded-xl flex flex-col sm:flex-row items-center px-4 sm:px-10 py-6 sm:py-8 shadow-lg gap-4 sm:gap-0"
+          className="w-full max-w-3xl rounded-xl flex flex-col sm:flex-row items-center px-4 sm:px-8 py-6 sm:py-8 shadow-lg gap-4 sm:gap-0"
           style={{
             backgroundColor: "#3b3054",
             backgroundImage: "url('/bg-shorten-desktop.svg')",
             backgroundRepeat: "no-repeat",
-            backgroundPosition: "center",
+            backgroundPosition: "right top",
             backgroundSize: "cover",
           }}
         >
           <input
             type="text"
+            value={url}
+            onChange={e => setUrl(e.target.value)}
             placeholder="Shorten a link here..."
-            className="flex-1 px-4 py-2 rounded-lg text-lg outline-solid outline-white bg-white text-gray-800 placeholder-gray-400 focus:outline-cyan-400 transition mb-4 sm:mb-0 sm:mr-6"
+            className={`flex-1 px-4 py-3 rounded-lg text-lg bg-white text-gray-800 placeholder-gray-400 focus:outline-cyan-400 transition mb-2 sm:mb-0 sm:mr-6 border-2 ${
+              error ? "border-red-500" : "border-transparent"
+            }`}
           />
-          <button className="bg-cyan-400 hover:bg-cyan-300 text-white font-bold px-5 py-3 rounded-lg text-lg transition w-full sm:w-auto">
-            Shorten It!
+          <button
+            className="bg-cyan-400 hover:bg-cyan-300 text-white font-bold px-8 py-3 rounded-lg text-lg transition w-full sm:w-auto"
+            onClick={handleShorten}
+            disabled={loading || !url}
+          >
+            {loading ? "Shortening..." : "Shorten It!"}
           </button>
         </div>
       </section>
-    
+      {error && (
+        <div className="text-red-500 text-left max-w-3xl mx-auto mb-4 pl-4 sm:pl-12 -mt-4 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Shortened Links List */}
+      <div className="max-w-3xl mx-auto w-full flex flex-col gap-4 px-2 sm:px-0 mb-12">
+        {links.map((link, idx) => (
+          <div
+            key={link.short}
+            className="bg-white rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-4 shadow-md"
+            style={{ fontFamily: "var(--font-poppins)" }}
+          >
+            <div className="w-full sm:w-auto break-all text-gray-900 text-base sm:text-lg mb-2 sm:mb-0">
+              {link.original}
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 w-full sm:w-auto">
+              <a
+                href={link.short}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cyan-500 font-medium hover:underline break-all"
+              >
+                {link.short}
+              </a>
+              <button
+                className={`px-8 py-2 rounded-lg text-white font-bold transition ${
+                  copiedIndex === idx
+                    ? "bg-[#3b3054]"
+                    : "bg-cyan-400 hover:bg-cyan-300"
+                }`}
+                onClick={() => handleCopy(link.short, idx)}
+              >
+                {copiedIndex === idx ? "Copied!" : "Copy"}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Advanced Statistics */}
       <section className="text-center mb-20 px-2 sm:px-4">
         <div className="max-w-7xl mx-auto w-full">
