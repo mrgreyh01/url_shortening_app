@@ -22,14 +22,14 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/shorten", {
+      const res = await fetch("/shorten", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ originalUrl: url }),
       });
       const data = await res.json();
       if (res.ok && data.short) {
-        setLinks([{ original: url, short: `${window.location.origin}/api/${data.short}` }, ...links]);
+        setLinks([{ original: url, short: `${window.location.origin}/${data.short}` }, ...links]);
         setUrl("");
       } else {
         setError(data.error || "Failed to shorten link.");
