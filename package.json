@@ -1,6 +1,7 @@
 {
   "name": "url-shortening-app",
   "version": "0.1.0",
+  "author": "Prakriti Kesharwani",
   "private": true,
   "scripts": {
     "dev": "next dev",

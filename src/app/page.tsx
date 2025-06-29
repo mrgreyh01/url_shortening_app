@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState } from "react";
 import Image from "next/image";
@@ -11,6 +11,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [modal, setModal] = useState<"signup" | "login" | null>(null);
+  const passwordsMatch = password === confirm;
 
   const navLinks = [
     { label: "Features", href: "#" },
@@ -47,6 +53,18 @@ export default function Home() {
     setTimeout(() => setCopiedIndex(null), 1500);
   }
 
+  function openModal(type: "signup" | "login") {
+    setModal(type);
+  }
+
+  function closeModal() {
+    setModal(null);
+    setName("");
+    setEmail("");
+    setPassword("");
+    setConfirm("");
+  }
+
   return (
     <div className="bg-[#f0f1f6] min-h-screen font-sans">
       {/* Header */}
@@ -76,8 +94,10 @@ export default function Home() {
             ))}
           </nav>
           <div className="flex gap-4 items-center mt-6 md:mt-0">
-            <button className="text-gray-500 font-medium hover:text-black">Login</button>
-            <button className="bg-cyan-400 hover:bg-cyan-300 text-white font-bold px-6 py-2 rounded-full transition">Sign Up</button>
+            <button className="text-gray-500 font-medium hover:text-black" onClick={() => openModal("login")}>Login</button>
+            <button className="bg-cyan-400 hover:bg-cyan-300 text-white font-bold px-6 py-2 rounded-full transition" onClick={() => openModal("signup")}>
+              Sign Up
+            </button>
           </div>
         </div>
       </header>
@@ -315,6 +335,178 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Modal Overlay */}
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Blurry glass background */}
+          <div
+            className="absolute inset-0 bg-[#232127]/70 backdrop-blur-[16px] transition-all"
+            onClick={closeModal}
+          />
+          {/* Modal content */}
+          <div className="relative z-10 w-full max-w-md mx-auto">
+            <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl p-8 flex flex-col items-center relative animate-fade-in">
+              {/* Cut icon */}
+              <button
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold focus:outline-none"
+                onClick={closeModal}
+                aria-label="Close"
+                tabIndex={0}
+              >
+                &times;
+              </button>
+              {modal === "signup" ? (
+                <>
+                  <h2 className="text-2xl font-extrabold text-[#3b3054] mb-2" style={{ fontFamily: "var(--font-poppins)" }}>
+                    Sign Up
+                  </h2>
+                  <p className="text-gray-400 mb-8 text-center" style={{ fontFamily: "var(--font-poppins)" }}>
+                    Create your Shortly account
+                  </p>
+                  <form className="w-full flex flex-col gap-5">
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-1">Name</label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
+                        placeholder="Your name"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-1">Email</label>
+                      <input
+                        type="email"
+                        className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
+                        placeholder="you@email.com"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-1">New Password</label>
+                      <input
+                        type="password"
+                        className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
+                        placeholder="Create password"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        required
+                      />
+                      <div
+                        className={`h-1 mt-1 rounded transition-all ${
+                          confirm
+                            ? passwordsMatch
+                              ? "bg-[#2acfcf]"
+                              : "bg-red-500"
+                            : "bg-gray-200"
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-1">Confirm Password</label>
+                      <input
+                        type="password"
+                        className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
+                        placeholder="Repeat password"
+                        value={confirm}
+                        onChange={e => setConfirm(e.target.value)}
+                        required
+                      />
+                      <div
+                        className={`h-1 mt-1 rounded transition-all ${
+                          confirm
+                            ? passwordsMatch
+                              ? "bg-[#2acfcf]"
+                              : "bg-red-500"
+                            : "bg-gray-200"
+                        }`}
+                      />
+                      {confirm && !passwordsMatch && (
+                        <div className="text-red-500 text-xs mt-1">Passwords do not match</div>
+                      )}
+                      {confirm && passwordsMatch && (
+                        <div className="text-[#2acfcf] text-xs mt-1">Passwords match</div>
+                      )}
+                    </div>
+                    <button
+                      type="submit"
+                      className="bg-[#2acfcf] hover:bg-cyan-300 text-white font-bold px-8 py-3 rounded-full text-lg transition mt-2"
+                      disabled={!name || !email || !password || !confirm || !passwordsMatch}
+                    >
+                      Sign Up
+                    </button>
+                  </form>
+                  <div className="mt-6 text-gray-500 text-sm">
+                    Already have an account?{" "}
+                    <button
+                      type="button"
+                      className="text-[#2acfcf] font-semibold hover:underline"
+                      onClick={() => setModal("login")}
+                    >
+                      Log in
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-extrabold text-[#3b3054] mb-2" style={{ fontFamily: "var(--font-poppins)" }}>
+                    Log In
+                  </h2>
+                  <p className="text-gray-400 mb-8 text-center" style={{ fontFamily: "var(--font-poppins)" }}>
+                    Welcome back! Please enter your details.
+                  </p>
+                  <form className="w-full flex flex-col gap-5">
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-1">Email</label>
+                      <input
+                        type="email"
+                        className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
+                        placeholder="you@email.com"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-1">Password</label>
+                      <input
+                        type="password"
+                        className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
+                        placeholder="Your password"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="bg-[#2acfcf] hover:bg-cyan-300 text-white font-bold px-8 py-3 rounded-full text-lg transition mt-2"
+                      disabled={!email || !password}
+                    >
+                      Log In
+                    </button>
+                  </form>
+                  <div className="mt-6 text-gray-500 text-sm">
+                    Don&apos;t have an account?{" "}
+                    <button
+                      type="button"
+                      className="text-[#2acfcf] font-semibold hover:underline"
+                      onClick={() => setModal("signup")}
+                    >
+                      Sign up
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
