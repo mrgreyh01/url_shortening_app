@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server';
-import Link from '@/models/link';
+import linkModel from '@/models/link';
 import sequelize from '@/lib/sequelize';
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { short: string } }
+  request: Request,
+  context: { params: Promise<{ short: string }> }
 ) {
+  const { short } = await context.params
   await sequelize.sync(); // dev only
 
-  const link = await Link.findOne({ where: { short: params.short } });
+  const link = await linkModel.findOne({ where: { short: short, isDeleted: false } });
   if (!link) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
+  await link.increment('traffic');
+  // Redirect to the original URL
   return NextResponse.redirect(link.getDataValue('original'));
 }
