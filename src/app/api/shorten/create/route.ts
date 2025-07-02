@@ -18,11 +18,34 @@ function isValidUrl(url: string): boolean {
 export async function POST(req: Request) {
   await sequelize.sync();
 
-  const { originalUrl, userId } = await req.json();
+  const { originalUrl, userId, customLink } = await req.json();
 
   // Validate the input URL
   if (!originalUrl || !isValidUrl(originalUrl)) {
     return NextResponse.json({ error: 'Invalid URL.' }, { status: 400 });
+  }
+
+  if (customLink && customLink.length > 0) {
+    // Check if the custom link is already taken
+    const existingCustomLink = await linkModel.findOne({ where: { short: customLink, userId } });
+    if (existingCustomLink) {
+      return NextResponse.json({ error: 'Custom link already exists.' }, { status: 400 });
+    }
+
+    // Validate custom link format
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(customLink)) {
+      return NextResponse.json({ error: 'Invalid custom link format.' }, { status: 400 });
+    }
+
+    // Create the new link with the custom short link
+    try {
+      const newLink = await linkModel.create({ userId, short: customLink, original: originalUrl });
+      return NextResponse.json({ short: newLink.getDataValue('short') });
+    } catch (error) {
+      console.error(error);
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    }
+    
   }
 
   const short = nanoid(6);

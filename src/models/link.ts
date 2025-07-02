@@ -4,7 +4,7 @@ import sequelize from '@/lib/sequelize';
 
 const Link = sequelize.define('Links', {
   short: {
-    type: DataTypes.STRING(10),
+    type: DataTypes.STRING,
     unique: true,
     allowNull: false,
   },
