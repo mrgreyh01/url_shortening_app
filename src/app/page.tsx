@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -32,6 +32,10 @@ export default function Home() {
   const [loginError, setLoginError] = useState("");
   const [signupBackendError, setSignupBackendError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState(false);
+  const [user, setUser] = useState<{ name: string; sessionId: string } | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const passwordsMatch = signupForm.password === signupForm.confirm;
 
@@ -40,6 +44,29 @@ export default function Home() {
     { label: "Pricing", href: "#" },
     { label: "Resources", href: "#" },
   ];
+
+  // On mount, check for sessionId in localStorage (persist login)
+  useEffect(() => {
+    const sessionId = localStorage.getItem("sessionId");
+    const name = localStorage.getItem("name");
+    if (sessionId && name) {
+      setUser({ name, sessionId });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [dropdownOpen]);
 
   async function handleShorten() {
     setLoading(true);
@@ -179,12 +206,12 @@ export default function Home() {
         setLoginError(data.error || "Login failed. Please try again.");
         return;
       }
-      // Success: store userId, name, sessionId for future use
-      // Example: localStorage/sessionStorage or state management
+      // Save to localStorage for persistence
       localStorage.setItem("userId", data.userId);
       localStorage.setItem("name", data.name);
       localStorage.setItem("sessionId", data.sessionId);
-
+      // Set user state
+      setUser({ name: data.name, sessionId: data.sessionId });
       // Optionally, close modal and reset form
       setModal(null);
       setLoginForm({ email: "", password: "" });
@@ -192,6 +219,26 @@ export default function Home() {
       // You can redirect or update UI here as needed
     } catch (err) {
       setLoginError("Network error. Please try again.");
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      const res = await fetch("/api/logout", { method: "POST" });
+      if (res.status === 200) {
+        // Only clear local data if backend confirms logout
+        localStorage.removeItem("userId");
+        localStorage.removeItem("name");
+        localStorage.removeItem("sessionId");
+        setUser(null);
+        setDropdownOpen(false);
+      } else {
+        // Optionally, show an error or toast here
+        // Example: setLogoutError("Logout failed. Please try again.");
+      }
+    } catch (err) {
+      // Optionally, show an error or toast here
+      // Example: setLogoutError("Network error. Please try again.");
     }
   }
 
@@ -224,10 +271,44 @@ export default function Home() {
             ))}
           </nav>
           <div className="flex gap-4 items-center mt-6 md:mt-0">
-            <button className="text-gray-500 font-medium hover:text-black" onClick={() => openModal("login")}>Login</button>
-            <button className="bg-cyan-400 hover:bg-cyan-300 text-white font-bold px-6 py-2 rounded-full transition" onClick={() => openModal("signup")}>
-              Sign Up
-            </button>
+            {user && user.sessionId ? (
+              <div className="relative flex items-center" ref={dropdownRef}>
+                <span
+                  className="text-gray-700 font-semibold text-base sm:text-lg mr-2"
+                  style={{ fontFamily: "var(--font-poppins)" }}
+                >
+                  Hi, {user.name.charAt(0).toUpperCase() + user.name.slice(1)}
+                </span>
+                <button
+                  className="flex items-center px-3 py-2 rounded-full bg-[#2acfcf] hover:bg-cyan-300 text-white font-bold transition focus:outline-none"
+                  onClick={() => setDropdownOpen((open) => !open)}
+                  aria-label="User menu"
+                  type="button"
+                >
+                  <svg className={`w-5 h-5 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {dropdownOpen && (
+                  <div className="absolute top-full right-0 mt-2 w-32 bg-white rounded-lg shadow-lg z-50 border border-gray-100 animate-fade-in">
+                    <button
+                      className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium"
+                      style={{ fontFamily: "var(--font-poppins)" }}
+                      onClick={handleLogout}
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <button className="text-gray-500 font-medium hover:text-black" onClick={() => openModal("login")}>Login</button>
+                <button className="bg-cyan-400 hover:bg-cyan-300 text-white font-bold px-6 py-2 rounded-full transition" onClick={() => openModal("signup")}>
+                  Sign Up
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
