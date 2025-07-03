@@ -30,6 +30,8 @@ export default function Home() {
     password: "",
   });
   const [loginError, setLoginError] = useState("");
+  const [signupBackendError, setSignupBackendError] = useState("");
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   const passwordsMatch = signupForm.password === signupForm.confirm;
 
@@ -115,20 +117,82 @@ export default function Home() {
   async function handleSignupSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSignupSubmitted(true);
+    setSignupBackendError("");
     const errors = validateSignup(signupForm);
     setSignupErrors(errors);
+
     if (!errors.name && !errors.email && !errors.password && !errors.confirm) {
-      // TODO: Call your signup API here
-      // On success, close modal and reset form:
-      setModal(null);
-      setSignupForm({ name: "", email: "", password: "", confirm: "" });
-      setSignupErrors({ name: "", email: "", password: "", confirm: "" });
-      setSignupSubmitted(false);
+      try {
+        const res = await fetch("/api/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: signupForm.name,
+            email: signupForm.email,
+            password: signupForm.password,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setSignupBackendError(data.error || "Signup failed. Please try again.");
+          return;
+        }
+        // Show creative success message
+        setSignupSuccess(true);
+        setSignupForm({ name: "", email: "", password: "", confirm: "" });
+        setSignupErrors({ name: "", email: "", password: "", confirm: "" });
+        setSignupSubmitted(false);
+        setSignupBackendError("");
+        // After 2.5s, open login form
+        setTimeout(() => {
+          setSignupSuccess(false);
+          setModal("login");
+        }, 5000);
+      } catch (err) {
+        setSignupBackendError("Network error. Please try again.");
+      }
     }
   }
 
   function validateLoginEmail(email: string) {
     return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email.trim());
+  }
+
+  async function handleLoginSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoginError("");
+    if (!validateLoginEmail(loginForm.email)) {
+      setLoginError("Please enter a valid email address.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: loginForm.email,
+          password: loginForm.password,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setLoginError(data.error || "Login failed. Please try again.");
+        return;
+      }
+      // Success: store userId, name, sessionId for future use
+      // Example: localStorage/sessionStorage or state management
+      localStorage.setItem("userId", data.userId);
+      localStorage.setItem("name", data.name);
+      localStorage.setItem("sessionId", data.sessionId);
+
+      // Optionally, close modal and reset form
+      setModal(null);
+      setLoginForm({ email: "", password: "" });
+      setLoginError("");
+      // You can redirect or update UI here as needed
+    } catch (err) {
+      setLoginError("Network error. Please try again.");
+    }
   }
 
   return (
@@ -423,111 +487,133 @@ export default function Home() {
                 &times;
               </button>
               {modal === "signup" ? (
-                <>
-                  <h2 className="text-2xl font-extrabold text-[#3b3054] mb-2" style={{ fontFamily: "var(--font-poppins)" }}>
-                    Sign Up
-                  </h2>
-                  <p className="text-gray-400 mb-8 text-center" style={{ fontFamily: "var(--font-poppins)" }}>
-                    Create your Shortly account
-                  </p>
-                  <form className="w-full flex flex-col gap-5" onSubmit={handleSignupSubmit} noValidate>
-                    <div>
-                      <label className="block text-gray-700 font-semibold mb-1">Name</label>
-                      <input
-                        type="text"
-                        name="name"
-                        className={`w-full px-4 py-3 rounded-lg border-2 ${
-                          signupErrors.name && signupSubmitted ? "border-red-500" : "border-transparent"
-                        } focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
-                        placeholder="Your name"
-                        value={signupForm.name}
-                        onChange={handleSignupChange}
-                        required
-                      />
-                      {signupErrors.name && signupSubmitted && (
-                        <div className="text-red-500 text-xs mt-1">{signupErrors.name}</div>
-                      )}
+                signupSuccess ? (
+                  <div className="flex flex-col items-center justify-center min-h-[340px] w-full">
+                    <div className="bg-gradient-to-br from-[#2acfcf] to-[#3b3054] rounded-full p-6 mb-6 shadow-lg animate-bounce">
+                      <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
                     </div>
-                    <div>
-                      <label className="block text-gray-700 font-semibold mb-1">Email</label>
-                      <input
-                        type="email"
-                        name="email"
-                        className={`w-full px-4 py-3 rounded-lg border-2 ${
-                          signupErrors.email && signupSubmitted ? "border-red-500" : "border-transparent"
-                        } focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
-                        placeholder="you@email.com"
-                        value={signupForm.email}
-                        onChange={handleSignupChange}
-                        required
-                      />
-                      {signupErrors.email && signupSubmitted && (
-                        <div className="text-red-500 text-xs mt-1">{signupErrors.email}</div>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-gray-700 font-semibold mb-1">New Password</label>
-                      <input
-                        type="password"
-                        name="password"
-                        className={`w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
-                        placeholder="Create password"
-                        value={signupForm.password}
-                        onChange={handleSignupChange}
-                        required
-                      />
-                      {signupErrors.password && signupSubmitted && (
-                        <div className="text-red-500 text-xs mt-1">{signupErrors.password}</div>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-gray-700 font-semibold mb-1">Confirm Password</label>
-                      <input
-                        type="password"
-                        name="confirm"
-                        className={`w-full px-4 py-3 rounded-lg border-2 ${
-                          signupForm.confirm &&
-                          signupForm.password &&
-                          signupForm.confirm !== signupForm.password
-                            ? "border-red-500"
-                            : "border-transparent"
-                        } focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
-                        placeholder="Repeat password"
-                        value={signupForm.confirm}
-                        onChange={handleSignupChange}
-                        required
-                      />
-                      {signupForm.confirm &&
-                        signupForm.password &&
-                        signupForm.confirm !== signupForm.password && (
-                          <div className="text-red-500 text-xs mt-1">Passwords do not match.</div>
-                      )}
-                      {signupErrors.confirm && signupSubmitted && signupForm.confirm === signupForm.password && (
-                        <div className="text-red-500 text-xs mt-1">{signupErrors.confirm}</div>
-                      )}
-                    </div>                                      
-                    <button
-                      type="submit"
-                      className="bg-[#2acfcf] hover:bg-cyan-300 text-white font-bold px-8 py-3 rounded-full text-lg transition mt-2"
-                    >
-                      Sign Up
-                    </button>
-                  </form>
-                  <div className="mt-6 text-gray-500 text-sm">
-                    Already have an account?{" "}
-                    <button
-                      type="button"
-                      className="text-[#2acfcf] font-semibold hover:underline"
-                      onClick={() => {
-                        setSignupSubmitted(false);
-                        setModal("login");
-                        setLoginForm({ email: "", password: "" }); // reset login form
-                      }}
-                    >
-                      Log in
-                    </button>
+                    <h2 className="text-2xl font-extrabold text-[#3b3054] mb-2 text-center" style={{ fontFamily: "var(--font-poppins)" }}>
+                      Account Created!
+                    </h2>
+                    <p className="text-gray-500 text-lg text-center mb-2" style={{ fontFamily: "var(--font-poppins)" }}>
+                      Your account has been created successfully.
+                    </p>
+                    <p className="text-cyan-500 text-base text-center animate-pulse" style={{ fontFamily: "var(--font-poppins)" }}>
+                      Redirecting to login...
+                    </p>
                   </div>
-                </>
+                ) : (
+                  <>
+                    <h2 className="text-2xl font-extrabold text-[#3b3054] mb-2" style={{ fontFamily: "var(--font-poppins)" }}>
+                      Sign Up
+                    </h2>
+                    <p className="text-gray-400 mb-8 text-center" style={{ fontFamily: "var(--font-poppins)" }}>
+                      Create your Shortly account
+                    </p>
+                    <form className="w-full flex flex-col gap-5" onSubmit={handleSignupSubmit} noValidate>
+                      <div>
+                        <label className="block text-gray-700 font-semibold mb-1">Name</label>
+                        <input
+                          type="text"
+                          name="name"
+                          className={`w-full px-4 py-3 rounded-lg border-2 ${
+                            signupErrors.name && signupSubmitted ? "border-red-500" : "border-transparent"
+                          } focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
+                          placeholder="Your name"
+                          value={signupForm.name}
+                          onChange={handleSignupChange}
+                          required
+                        />
+                        {signupErrors.name && signupSubmitted && (
+                          <div className="text-red-500 text-xs mt-1">{signupErrors.name}</div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 font-semibold mb-1">Email</label>
+                        <input
+                          type="email"
+                          name="email"
+                          className={`w-full px-4 py-3 rounded-lg border-2 ${
+                            signupErrors.email && signupSubmitted ? "border-red-500" : "border-transparent"
+                          } focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
+                          placeholder="you@email.com"
+                          value={signupForm.email}
+                          onChange={handleSignupChange}
+                          required
+                        />
+                        {signupErrors.email && signupSubmitted && (
+                          <div className="text-red-500 text-xs mt-1">{signupErrors.email}</div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 font-semibold mb-1">New Password</label>
+                        <input
+                          type="password"
+                          name="password"
+                          className={`w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
+                          placeholder="Create password"
+                          value={signupForm.password}
+                          onChange={handleSignupChange}
+                          required
+                        />
+                        {signupErrors.password && signupSubmitted && (
+                          <div className="text-red-500 text-xs mt-1">{signupErrors.password}</div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 font-semibold mb-1">Confirm Password</label>
+                        <input
+                          type="password"
+                          name="confirm"
+                          className={`w-full px-4 py-3 rounded-lg border-2 ${
+                            signupForm.confirm &&
+                            signupForm.password &&
+                            signupForm.confirm !== signupForm.password
+                              ? "border-red-500"
+                              : "border-transparent"
+                          } focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
+                          placeholder="Repeat password"
+                          value={signupForm.confirm}
+                          onChange={handleSignupChange}
+                          required
+                        />
+                        {signupForm.confirm &&
+                          signupForm.password &&
+                          signupForm.confirm !== signupForm.password && (
+                            <div className="text-red-500 text-xs mt-1">Passwords do not match.</div>
+                        )}
+                        {signupErrors.confirm && signupSubmitted && signupForm.confirm === signupForm.password && (
+                          <div className="text-red-500 text-xs mt-1">{signupErrors.confirm}</div>
+                        )}
+                      </div>  
+                      {signupBackendError && (
+                        <div className="text-red-500 text-xs mb-2 text-center">{signupBackendError}</div>
+                      )}                                    
+                      <button
+                        type="submit"
+                        className="bg-[#2acfcf] hover:bg-cyan-300 text-white font-bold px-8 py-3 rounded-full text-lg transition mt-2"
+                      >
+                        Sign Up
+                      </button>
+                    </form>
+                    <div className="mt-6 text-gray-500 text-sm">
+                      Already have an account?{" "}
+                      <button
+                        type="button"
+                        className="text-[#2acfcf] font-semibold hover:underline"
+                        onClick={() => {
+                          setSignupSubmitted(false);
+                          setModal("login");
+                          setLoginForm({ email: "", password: "" }); // reset login form
+                        }}
+                      >
+                        Log in
+                      </button>
+                    </div>
+                  </>
+                )
               ) : (
                 <>
                   <h2 className="text-2xl font-extrabold text-[#3b3054] mb-2" style={{ fontFamily: "var(--font-poppins)" }}>
@@ -538,16 +624,7 @@ export default function Home() {
                   </p>
                   <form
                     className="w-full flex flex-col gap-5"
-                    onSubmit={e => {
-                      e.preventDefault();
-                      if (!validateLoginEmail(loginForm.email)) {
-                        setLoginError("Please enter a valid email address.");
-                        return;
-                      }
-                      // TODO: Add your login logic here
-                      setModal(null);
-                      setLoginForm({ email: "", password: "" });
-                    }}
+                    onSubmit={handleLoginSubmit}
                     noValidate
                   >
                     <div>
@@ -571,9 +648,9 @@ export default function Home() {
                         }}
                         required
                       />
-                      {loginForm.email.length > 0 && loginError && (
+                      {/* {loginForm.email.length > 0 && loginError && (
                         <div className="text-red-500 text-xs mt-1">{loginError}</div>
-                      )}
+                      )} */}
                     </div>
                     <div>
                       <label className="block text-gray-700 font-semibold mb-1">Password</label>
@@ -586,6 +663,9 @@ export default function Home() {
                         required
                       />
                     </div>
+                    {loginError && (
+                      <div className="text-red-500 text-xs mb-2 text-center">{loginError}</div>
+                    )}
                     <button
                       type="submit"
                       className="bg-[#2acfcf] hover:bg-cyan-300 text-white font-bold px-8 py-3 rounded-full text-lg transition mt-2"

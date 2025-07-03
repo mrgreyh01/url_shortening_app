@@ -5,6 +5,7 @@ import userModel from '@/models/user';
 import sessionModel from '@/models/session';
 import sequelize from '@/lib/sequelize';
 
+
 export async function POST(req: Request) {
   await sequelize.sync();
   const { email, password } = await req.json();
