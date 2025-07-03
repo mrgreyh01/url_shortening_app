@@ -11,12 +11,26 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [modal, setModal] = useState<"signup" | "login" | null>(null);
-  const passwordsMatch = password === confirm;
+  const [signupForm, setSignupForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirm: "",
+  });
+  const [signupErrors, setSignupErrors] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirm: "",
+  });
+  const [signupSubmitted, setSignupSubmitted] = useState(false);
+  const [loginForm, setLoginForm] = useState({
+    email: "",
+    password: "",
+  });
+
+  const passwordsMatch = signupForm.password === signupForm.confirm;
 
   const navLinks = [
     { label: "Features", href: "#" },
@@ -31,7 +45,7 @@ export default function Home() {
       const res = await fetch("/api/shorten/create/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ originalUrl: url }),
+        body: JSON.stringify({ originalUrl: url, userId: "anonymous" }), 
       });
       const data = await res.json();
       if (res.ok && data.short) {
@@ -55,14 +69,61 @@ export default function Home() {
 
   function openModal(type: "signup" | "login") {
     setModal(type);
+    setSignupSubmitted(false);
+    setSignupErrors({ name: "", email: "", password: "", confirm: "" });
+    setSignupForm({ name: "", email: "", password: "", confirm: "" });
+    setLoginForm({ email: "", password: "" }); // <-- add this
   }
 
   function closeModal() {
     setModal(null);
-    setName("");
-    setEmail("");
-    setPassword("");
-    setConfirm("");
+    setSignupForm({ name: "", email: "", password: "", confirm: "" });
+    setSignupErrors({ name: "", email: "", password: "", confirm: "" });
+    setSignupSubmitted(false);
+  }
+
+  function validateSignup(form: typeof signupForm) {
+    const errors = { name: "", email: "", password: "", confirm: "" };
+    if (!/^[A-Za-z\s]+$/.test(form.name.trim())) {
+      errors.name = "Name must contain alphabets and spaces only.";
+    }
+    if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(form.email.trim())) {
+      errors.email = "Please enter a valid email address.";
+    }
+    if (
+      form.password.length < 8 ||
+      !/[A-Z]/.test(form.password) ||
+      !/[@!*&$#]/.test(form.password)
+    ) {
+      errors.password =
+        "Password must be at least 8 characters, include one uppercase and one special character (@!*&$#).";
+    }
+    if (form.confirm !== form.password) {
+      errors.confirm = "Passwords do not match.";
+    }
+    return errors;
+  }
+
+  function handleSignupChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setSignupForm({ ...signupForm, [e.target.name]: e.target.value });
+    if (signupSubmitted) {
+      setSignupErrors(validateSignup({ ...signupForm, [e.target.name]: e.target.value }));
+    }
+  }
+
+  async function handleSignupSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSignupSubmitted(true);
+    const errors = validateSignup(signupForm);
+    setSignupErrors(errors);
+    if (!errors.name && !errors.email && !errors.password && !errors.confirm) {
+      // TODO: Call your signup API here
+      // On success, close modal and reset form:
+      setModal(null);
+      setSignupForm({ name: "", email: "", password: "", confirm: "" });
+      setSignupErrors({ name: "", email: "", password: "", confirm: "" });
+      setSignupSubmitted(false);
+    }
   }
 
   return (
@@ -364,79 +425,85 @@ export default function Home() {
                   <p className="text-gray-400 mb-8 text-center" style={{ fontFamily: "var(--font-poppins)" }}>
                     Create your Shortly account
                   </p>
-                  <form className="w-full flex flex-col gap-5">
+                  <form className="w-full flex flex-col gap-5" onSubmit={handleSignupSubmit} noValidate>
                     <div>
                       <label className="block text-gray-700 font-semibold mb-1">Name</label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
+                        name="name"
+                        className={`w-full px-4 py-3 rounded-lg border-2 ${
+                          signupErrors.name && signupSubmitted ? "border-red-500" : "border-transparent"
+                        } focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
                         placeholder="Your name"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
+                        value={signupForm.name}
+                        onChange={handleSignupChange}
                         required
                       />
+                      {signupErrors.name && signupSubmitted && (
+                        <div className="text-red-500 text-xs mt-1">{signupErrors.name}</div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-gray-700 font-semibold mb-1">Email</label>
                       <input
                         type="email"
-                        className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
+                        name="email"
+                        className={`w-full px-4 py-3 rounded-lg border-2 ${
+                          signupErrors.email && signupSubmitted ? "border-red-500" : "border-transparent"
+                        } focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
                         placeholder="you@email.com"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
+                        value={signupForm.email}
+                        onChange={handleSignupChange}
                         required
                       />
+                      {signupErrors.email && signupSubmitted && (
+                        <div className="text-red-500 text-xs mt-1">{signupErrors.email}</div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-gray-700 font-semibold mb-1">New Password</label>
                       <input
                         type="password"
-                        className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
+                        name="password"
+                        className={`w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
                         placeholder="Create password"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
+                        value={signupForm.password}
+                        onChange={handleSignupChange}
                         required
                       />
-                      <div
-                        className={`h-1 mt-1 rounded transition-all ${
-                          confirm
-                            ? passwordsMatch
-                              ? "bg-[#2acfcf]"
-                              : "bg-red-500"
-                            : "bg-gray-200"
-                        }`}
-                      />
+                      {signupErrors.password && signupSubmitted && (
+                        <div className="text-red-500 text-xs mt-1">{signupErrors.password}</div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-gray-700 font-semibold mb-1">Confirm Password</label>
                       <input
                         type="password"
-                        className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
+                        name="confirm"
+                        className={`w-full px-4 py-3 rounded-lg border-2 ${
+                          signupForm.confirm &&
+                          signupForm.password &&
+                          signupForm.confirm !== signupForm.password
+                            ? "border-red-500"
+                            : "border-transparent"
+                        } focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
                         placeholder="Repeat password"
-                        value={confirm}
-                        onChange={e => setConfirm(e.target.value)}
+                        value={signupForm.confirm}
+                        onChange={handleSignupChange}
                         required
                       />
-                      <div
-                        className={`h-1 mt-1 rounded transition-all ${
-                          confirm
-                            ? passwordsMatch
-                              ? "bg-[#2acfcf]"
-                              : "bg-red-500"
-                            : "bg-gray-200"
-                        }`}
-                      />
-                      {confirm && !passwordsMatch && (
-                        <div className="text-red-500 text-xs mt-1">Passwords do not match</div>
+                      {signupForm.confirm &&
+                        signupForm.password &&
+                        signupForm.confirm !== signupForm.password && (
+                          <div className="text-red-500 text-xs mt-1">Passwords do not match.</div>
                       )}
-                      {confirm && passwordsMatch && (
-                        <div className="text-[#2acfcf] text-xs mt-1">Passwords match</div>
+                      {signupErrors.confirm && signupSubmitted && signupForm.confirm === signupForm.password && (
+                        <div className="text-red-500 text-xs mt-1">{signupErrors.confirm}</div>
                       )}
-                    </div>
+                    </div>                                      
                     <button
                       type="submit"
                       className="bg-[#2acfcf] hover:bg-cyan-300 text-white font-bold px-8 py-3 rounded-full text-lg transition mt-2"
-                      disabled={!name || !email || !password || !confirm || !passwordsMatch}
                     >
                       Sign Up
                     </button>
@@ -446,7 +513,11 @@ export default function Home() {
                     <button
                       type="button"
                       className="text-[#2acfcf] font-semibold hover:underline"
-                      onClick={() => setModal("login")}
+                      onClick={() => {
+                        setSignupSubmitted(false);
+                        setModal("login");
+                        setLoginForm({ email: "", password: "" }); // reset login form
+                      }}
                     >
                       Log in
                     </button>
@@ -460,15 +531,24 @@ export default function Home() {
                   <p className="text-gray-400 mb-8 text-center" style={{ fontFamily: "var(--font-poppins)" }}>
                     Welcome back! Please enter your details.
                   </p>
-                  <form className="w-full flex flex-col gap-5">
+                  <form
+                    className="w-full flex flex-col gap-5"
+                    onSubmit={e => {
+                      e.preventDefault();
+                      // TODO: Add your login logic here
+                      setModal(null);
+                      setLoginForm({ email: "", password: "" });
+                    }}
+                    noValidate
+                  >
                     <div>
                       <label className="block text-gray-700 font-semibold mb-1">Email</label>
                       <input
                         type="email"
                         className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
                         placeholder="you@email.com"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
+                        value={loginForm.email}
+                        onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
                         required
                       />
                     </div>
@@ -478,15 +558,15 @@ export default function Home() {
                         type="password"
                         className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
                         placeholder="Your password"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
+                        value={loginForm.password}
+                        onChange={e => setLoginForm({ ...loginForm, password: e.target.value })}
                         required
                       />
                     </div>
                     <button
                       type="submit"
                       className="bg-[#2acfcf] hover:bg-cyan-300 text-white font-bold px-8 py-3 rounded-full text-lg transition mt-2"
-                      disabled={!email || !password}
+                      disabled={!loginForm.email || !loginForm.password}
                     >
                       Log In
                     </button>
@@ -496,7 +576,12 @@ export default function Home() {
                     <button
                       type="button"
                       className="text-[#2acfcf] font-semibold hover:underline"
-                      onClick={() => setModal("signup")}
+                      onClick={() => {
+                        setSignupSubmitted(false);
+                        setModal("signup");
+                        setSignupForm({ name: "", email: "", password: "", confirm: "" }); // reset signup form
+                        setSignupErrors({ name: "", email: "", password: "", confirm: "" });
+                      }}
                     >
                       Sign up
                     </button>
