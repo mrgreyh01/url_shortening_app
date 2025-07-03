@@ -34,6 +34,7 @@ export default function Home() {
   const [signupSuccess, setSignupSuccess] = useState(false);
   const [user, setUser] = useState<{ name: string; sessionId: string } | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -223,6 +224,7 @@ export default function Home() {
   }
 
   async function handleLogout() {
+    setLoggingOut(true);
     try {
       const res = await fetch("/api/logout", { method: "POST" });
       if (res.status === 200) {
@@ -240,6 +242,7 @@ export default function Home() {
       // Optionally, show an error or toast here
       // Example: setLogoutError("Network error. Please try again.");
     }
+    setLoggingOut(false);
   }
 
   return (
@@ -773,6 +776,23 @@ export default function Home() {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logging Out Spinner */}
+      {loggingOut && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#232127]/70 backdrop-blur-[2px]">
+          <div className="flex flex-col items-center">
+            <div className="bg-gradient-to-br from-[#2acfcf] to-[#3b3054] rounded-full p-6 shadow-lg animate-bounce">
+              <svg className="w-12 h-12 text-white animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <circle className="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <span className="mt-6 text-white text-lg font-bold" style={{ fontFamily: "var(--font-poppins)" }}>
+              Logging out...
+            </span>
           </div>
         </div>
       )}
