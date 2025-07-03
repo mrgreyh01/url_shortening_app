@@ -29,6 +29,7 @@ export default function Home() {
     email: "",
     password: "",
   });
+  const [loginError, setLoginError] = useState("");
 
   const passwordsMatch = signupForm.password === signupForm.confirm;
 
@@ -124,6 +125,10 @@ export default function Home() {
       setSignupErrors({ name: "", email: "", password: "", confirm: "" });
       setSignupSubmitted(false);
     }
+  }
+
+  function validateLoginEmail(email: string) {
+    return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email.trim());
   }
 
   return (
@@ -535,6 +540,10 @@ export default function Home() {
                     className="w-full flex flex-col gap-5"
                     onSubmit={e => {
                       e.preventDefault();
+                      if (!validateLoginEmail(loginForm.email)) {
+                        setLoginError("Please enter a valid email address.");
+                        return;
+                      }
                       // TODO: Add your login logic here
                       setModal(null);
                       setLoginForm({ email: "", password: "" });
@@ -545,12 +554,26 @@ export default function Home() {
                       <label className="block text-gray-700 font-semibold mb-1">Email</label>
                       <input
                         type="email"
-                        className="w-full px-4 py-3 rounded-lg border-2 border-transparent focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition"
+                        className={`w-full px-4 py-3 rounded-lg border-2 ${
+                          loginForm.email.length > 0 && !validateLoginEmail(loginForm.email)
+                            ? "border-red-500"
+                            : "border-transparent"
+                        } focus:outline-cyan-400 bg-[#f0f1f6] text-gray-900 transition`}
                         placeholder="you@email.com"
                         value={loginForm.email}
-                        onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
+                        onChange={e => {
+                          setLoginForm({ ...loginForm, email: e.target.value });
+                          if (e.target.value.length > 0 && !validateLoginEmail(e.target.value)) {
+                            setLoginError("Please enter a valid email address.");
+                          } else {
+                            setLoginError("");
+                          }
+                        }}
                         required
                       />
+                      {loginForm.email.length > 0 && loginError && (
+                        <div className="text-red-500 text-xs mt-1">{loginError}</div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-gray-700 font-semibold mb-1">Password</label>
