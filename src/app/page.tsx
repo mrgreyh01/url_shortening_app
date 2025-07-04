@@ -32,13 +32,16 @@ export default function Home() {
   const [loginError, setLoginError] = useState("");
   const [signupBackendError, setSignupBackendError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState(false);
-  const [user, setUser] = useState<{ name: string; sessionId: string } | null>(null);
+  const [user, setUser] = useState<{ name: string; sessionId: string; userId: number } | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
+  const [showAuthPanel, setShowAuthPanel] = useState(false);
+
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const passwordsMatch = signupForm.password === signupForm.confirm;
+  // const passwordsMatch = signupForm.password === signupForm.confirm;
 
   const navLinks = [
     { label: "Features", href: "#" },
@@ -50,8 +53,9 @@ export default function Home() {
   useEffect(() => {
     const sessionId = localStorage.getItem("sessionId");
     const name = localStorage.getItem("name");
-    if (sessionId && name) {
-      setUser({ name, sessionId });
+    const userId = localStorage.getItem("userId");
+    if (sessionId && name && userId) {
+      setUser({ name, sessionId, userId: Number(userId) });
     }
   }, []);
 
@@ -72,11 +76,18 @@ export default function Home() {
   async function handleShorten() {
     setLoading(true);
     setError(null);
+
+    if (!(user?.sessionId && user?.userId)) {
+      setShowAuthPanel(true);
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/shorten/create/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ originalUrl: url, userId: "anonymous" }), 
+        body: JSON.stringify({ originalUrl: url, userId: user?.userId }), 
       });
       const data = await res.json();
       if (res.ok && data.short) {
@@ -193,6 +204,7 @@ export default function Home() {
       setLoginError("Please enter a valid email address.");
       return;
     }
+    setLoggingIn(true);
     try {
       const res = await fetch("/api/auth", {
         method: "POST",
@@ -205,6 +217,7 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) {
         setLoginError(data.error || "Login failed. Please try again.");
+        setLoggingIn(false);
         return;
       }
       // Save to localStorage for persistence
@@ -212,15 +225,16 @@ export default function Home() {
       localStorage.setItem("name", data.name);
       localStorage.setItem("sessionId", data.sessionId);
       // Set user state
-      setUser({ name: data.name, sessionId: data.sessionId });
+      setUser({ name: data.name, sessionId: data.sessionId, userId: data.userId });
       // Optionally, close modal and reset form
       setModal(null);
       setLoginForm({ email: "", password: "" });
       setLoginError("");
       // You can redirect or update UI here as needed
     } catch (err) {
-      setLoginError("Network error. Please try again.");
+      setLoginError(err instanceof Error ? err.message : "Network error. Please try again.");
     }
+    setLoggingIn(false);
   }
 
   async function handleLogout() {
@@ -234,15 +248,15 @@ export default function Home() {
         localStorage.removeItem("sessionId");
         setUser(null);
         setDropdownOpen(false);
-      } else {
-        // Optionally, show an error or toast here
-        // Example: setLogoutError("Logout failed. Please try again.");
-      }
+      } 
     } catch (err) {
-      // Optionally, show an error or toast here
-      // Example: setLogoutError("Network error. Please try again.");
+      setLoggingOut(false);
     }
     setLoggingOut(false);
+  }
+
+  function handleClearLinks() {
+    setLinks([]);
   }
 
   return (
@@ -389,7 +403,7 @@ export default function Home() {
 
       {/* Shortened Links List */}
       <div className="max-w-3xl mx-auto w-full flex flex-col gap-4 px-2 sm:px-0 mb-12">
-        {links.map((link, idx) => (
+        {links.map((link  , idx) => (
           <div
             key={link.short}
             className="bg-white rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-4 shadow-md"
@@ -416,6 +430,14 @@ export default function Home() {
                 onClick={() => handleCopy(link.short, idx)}
               >
                 {copiedIndex === idx ? "Copied!" : "Copy"}
+              </button>
+              <button
+                className="ml-2 px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 font-bold transition flex items-center"
+                title="Clear all links"
+                onClick={handleClearLinks}
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                <span className="text-xl leading-none">&times;</span>
               </button>
             </div>
           </div>
@@ -793,6 +815,82 @@ export default function Home() {
             <span className="mt-6 text-white text-lg font-bold" style={{ fontFamily: "var(--font-poppins)" }}>
               Logging out...
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Logging In Spinner */}
+      {loggingIn && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#232127]/70 backdrop-blur-[2px]">
+          <div className="flex flex-col items-center">
+            <div className="bg-gradient-to-br from-[#2acfcf] to-[#3b3054] rounded-full p-6 shadow-lg animate-bounce">
+              <svg className="w-12 h-12 text-white animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <circle className="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <span className="mt-6 text-white text-lg font-bold" style={{ fontFamily: "var(--font-poppins)" }}>
+              Logging in...
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Auth Panel */}
+      {showAuthPanel && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#232127]/70 backdrop-blur-[2px]">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 flex flex-col items-center max-w-xl w-full mx-4 animate-fade-in">
+            {/* Cut icon button */}
+            <button
+              className="absolute top-4 right-4 text-white hover:text-red-700 text-4xl font-bold focus:outline-none"
+              onClick={() => setShowAuthPanel(false)}
+              aria-label="Close"
+              tabIndex={0}
+            >
+              &times;
+            </button>
+            <Image
+              src="/logo.svg"
+              alt="Logo Illustration"
+              width={120}
+              height={80}
+              className="mb-4 w-32 h-auto"
+              priority
+            />
+            <h3
+              className="text-xl font-extrabold text-[#3b3054] mb-2 text-center"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              Log in or Sign up to shorten links!
+            </h3>
+            <p
+              className="text-gray-500 text-base text-center mb-6"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              Please log in or create an account to use the link shortener.
+            </p>
+            <div className="flex gap-4 w-full">
+              <button
+                className="flex-1 bg-cyan-400 hover:bg-cyan-300 text-white font-bold px-4 py-2 rounded-full transition text-base"
+                style={{ fontFamily: "var(--font-poppins)" }}
+                onClick={() => {
+                  setShowAuthPanel(false);
+                  openModal("login");
+                }}
+              >
+                Log In
+              </button>
+              <button
+                className="flex-1 bg-[#3b3054] hover:bg-[#51407a] text-white font-bold px-4 py-2 rounded-full transition text-base"
+                style={{ fontFamily: "var(--font-poppins)" }}
+                onClick={() => {
+                  setShowAuthPanel(false);
+                  openModal("signup");
+                }}
+              >
+                Sign Up
+              </button>
+            </div>
           </div>
         </div>
       )}
