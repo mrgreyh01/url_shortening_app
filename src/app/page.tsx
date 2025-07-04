@@ -471,21 +471,23 @@ export default function Home() {
 
       {/* Shortened Links List */}
       <div className="max-w-3xl mx-auto w-full flex flex-col gap-4 px-2 sm:px-0 mb-12">
-        {links.map((link  , idx) => (
+        {links.map((link, idx) => (
           <div
             key={link.short}
             className="bg-white rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-4 shadow-md"
             style={{ fontFamily: "var(--font-poppins)" }}
           >
-            <div className="w-full sm:w-auto break-all text-gray-900 text-base sm:text-lg mb-2 sm:mb-0">
+            {/* Make this container flex and allow shrinking */}
+            <div className="w-full sm:w-1/2 break-all text-gray-900 text-base sm:text-lg mb-2 sm:mb-0 overflow-x-auto whitespace-pre-wrap scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent pr-2">
               {link.original}
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 w-full sm:w-auto mt-2 sm:mt-0">
               <a
                 href={link.short}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-cyan-500 font-medium hover:underline break-all"
+                style={{ wordBreak: "break-all" }}
               >
                 {link.short}
               </a>
@@ -501,8 +503,10 @@ export default function Home() {
               </button>
               <button
                 className="ml-2 px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 font-bold transition flex items-center"
-                title="Clear all links"
-                onClick={handleClearLinks}
+                title="Remove this link"
+                onClick={() => {
+                  setLinks(links => links.filter((_, i) => i !== idx));
+                }}
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
                 <span className="text-xl leading-none">&times;</span>
