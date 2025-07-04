@@ -37,7 +37,10 @@ export default function Home() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
   const [showAuthPanel, setShowAuthPanel] = useState(false);
-
+  const [customLink, setCustomLink] = useState("");
+  const [customLinkError, setCustomLinkError] = useState("");
+  const [showCustom, setShowCustom] = useState(false);
+  const [domainPrefix, setDomainPrefix] = useState("");
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -59,6 +62,11 @@ export default function Home() {
     }
   }, []);
 
+  // Set domain prefix on client only
+  useEffect(() => {
+    setDomainPrefix(window.location.origin + "/");
+  }, []);
+
   useEffect(() => {
     if (!dropdownOpen) return;
     function handleClickOutside(event: MouseEvent) {
@@ -76,9 +84,17 @@ export default function Home() {
   async function handleShorten() {
     setLoading(true);
     setError(null);
+    setCustomLinkError("");
 
     if (!(user?.sessionId && user?.userId)) {
       setShowAuthPanel(true);
+      setLoading(false);
+      return;
+    }
+
+    // Optional: Validate custom link format before sending
+    if (customLink && !/^[a-zA-Z0-9_-]{3,20}$/.test(customLink)) {
+      setCustomLinkError("Custom link must be 3-20 characters, letters, numbers, - or _ only.");
       setLoading(false);
       return;
     }
@@ -87,16 +103,18 @@ export default function Home() {
       const res = await fetch("/api/shorten/create/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ originalUrl: url, userId: user?.userId }), 
+        body: JSON.stringify({ originalUrl: url, userId: user?.userId, customLink: customLink.trim() }),
       });
       const data = await res.json();
       if (res.ok && data.short) {
         setLinks([{ original: url, short: `${window.location.origin}/${data.short}` }, ...links]);
         setUrl("");
+        setCustomLink("");
+      } else if (data.error && data.error.toLowerCase().includes("custom link")) {
+        setCustomLinkError(data.error);
       } else {
         setError(data.error || "Failed to shorten link.");
       }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e) {
       setError("Something went wrong.");
     }
@@ -367,39 +385,89 @@ export default function Home() {
 
       {/* Shorten Input */}
       <section className="relative z-10 flex justify-center -mt-8 mb-8 px-2 sm:px-4">
-        <div
-          className="w-full max-w-3xl rounded-xl flex flex-col sm:flex-row items-center px-4 sm:px-8 py-6 sm:py-8 shadow-lg gap-4 sm:gap-0"
+        <form
+          className="w-full max-w-3xl rounded-xl bg-[#3b3054] shadow-lg px-4 sm:px-8 py-6 sm:py-8 flex flex-col gap-2"
           style={{
-            backgroundColor: "#3b3054",
             backgroundImage: "url('/bg-shorten-desktop.svg')",
             backgroundRepeat: "no-repeat",
             backgroundPosition: "right top",
             backgroundSize: "cover",
           }}
+          onSubmit={e => { e.preventDefault(); handleShorten(); }}
         >
-          <input
-            type="text"
-            value={url}
-            onChange={e => setUrl(e.target.value)}
-            placeholder="Shorten a link here..."
-            className={`flex-1 px-4 py-3 rounded-lg text-lg bg-white text-gray-800 placeholder-gray-400 focus:outline-cyan-400 transition mb-2 sm:mb-0 sm:mr-6 border-2 ${
-              error ? "border-red-500" : "border-transparent"
-            }`}
-          />
+          {/* Main URL input */}
+          <div className="flex flex-col gap-1">
+            <input
+              type="text"
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              placeholder="Shorten a link here..."
+              className={`w-full px-4 py-3 rounded-lg text-lg bg-white text-gray-800 placeholder-gray-400 focus:outline-cyan-400 transition border-2 ${
+                error ? "border-red-500" : "border-transparent"
+              }`}
+              style={{ fontFamily: "var(--font-poppins)" }}
+            />
+            {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+          </div>
+          {/* Custom link toggle */}
+          <div className="flex items-center gap-3 mb-0 mt-2">
+            <label
+              htmlFor="custom-link-toggle"
+              className="text-sm font-semibold text-gray-200"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              Custom link (optional)
+            </label>
+            {/* Toggle Switch */}
+            <button
+              type="button"
+              aria-label="Toggle custom link"
+              className="focus:outline-none"
+              onClick={() => setShowCustom(v => !v)}
+              tabIndex={0}
+            >
+              <span className={`inline-block w-10 h-6 rounded-full transition-colors duration-200 ${showCustom ? "bg-[#2acfcf]" : "bg-gray-300"}`}>
+                <span
+                  className={`block w-6 h-6 bg-white rounded-full shadow transform transition-transform duration-200 ${showCustom ? "translate-x-4" : ""}`}
+                />
+              </span>
+            </button>
+          </div>
+          {/* Custom link input (collapsible) */}
+          <div
+            className={`overflow-hidden transition-all duration-300 ${showCustom ? "max-h-20 opacity-100 mt-2" : "max-h-0 opacity-0"} `}
+            style={{ willChange: "max-height, opacity" }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-gray-300 bg-[#251e38] px-3 py-2 rounded-l-lg text-base select-none" style={{ fontFamily: "var(--font-poppins)" }}>
+                {domainPrefix}
+              </span>
+              <input
+                id="custom-link"
+                type="text"
+                value={customLink}
+                onChange={e => setCustomLink(e.target.value)}
+                placeholder="your-custom-alias"
+                className={`flex-1 px-4 py-2 rounded-r-lg text-base bg-white text-gray-800 placeholder-gray-400 focus:outline-cyan-400 transition border-2 ${
+                  customLinkError ? "border-red-500" : "border-transparent"
+                }`}
+                style={{ fontFamily: "var(--font-poppins)" }}
+                maxLength={20}
+              />
+            </div>
+            {customLinkError && <div className="text-red-500 text-xs mt-1">{customLinkError}</div>}
+          </div>
+          {/* Button */}
           <button
-            className="bg-cyan-400 hover:bg-cyan-300 text-white font-bold px-8 py-3 rounded-lg text-lg transition w-full sm:w-auto"
-            onClick={handleShorten}
+            type="submit"
+            className="bg-cyan-400 hover:bg-cyan-300 text-white font-bold px-8 py-3 rounded-full text-lg transition mt-3"
             disabled={loading || !url}
+            style={{ fontFamily: "var(--font-poppins)" }}
           >
             {loading ? "Shortening..." : "Shorten It!"}
           </button>
-        </div>
+        </form>
       </section>
-      {error && (
-        <div className="text-red-500 text-left max-w-3xl mx-auto mb-4 pl-4 sm:pl-12 -mt-4 text-sm">
-          {error}
-        </div>
-      )}
 
       {/* Shortened Links List */}
       <div className="max-w-3xl mx-auto w-full flex flex-col gap-4 px-2 sm:px-0 mb-12">
@@ -509,14 +577,18 @@ export default function Home() {
           backgroundRepeat: "no-repeat",
           backgroundPosition: "center",
           backgroundSize: "cover",
+          fontFamily: "var(--font-poppins)", // <-- Add this line
         }}
       >
-        <div className="w-full max-w-3xl mx-auto rounded-xl flex flex-col items-center px-4 sm:px-10 py-8 shadow-lg">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-6">Boost your links today</h2>
-          <button className="bg-cyan-400 hover:bg-cyan-300 text-white font-bold px-8 sm:px-10 py-4 rounded-full text-lg transition">
-            Get Started
-          </button>
-        </div>
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-6" style={{ fontFamily: "var(--font-poppins)" }}>
+          Boost your links today
+        </h2>
+        <button
+          className="bg-cyan-400 hover:bg-cyan-300 text-white font-bold px-8 sm:px-10 py-4 rounded-full text-lg transition"
+          style={{ fontFamily: "var(--font-poppins)" }}
+        >
+          Get Started
+        </button>
       </section>
 
       {/* Footer */}
