@@ -41,6 +41,13 @@ export default function Home() {
   const [customLinkError, setCustomLinkError] = useState("");
   const [showCustom, setShowCustom] = useState(false);
   const [domainPrefix, setDomainPrefix] = useState("");
+  const [showAllLinksPanel, setShowAllLinksPanel] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<number[]>([]);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editData, setEditData] = useState<{ original: string; short: string }>({ original: "", short: "" });
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -275,6 +282,128 @@ export default function Home() {
 
   function handleClearLinks() {
     setLinks([]);
+  }
+
+  const [allLinks, setAllLinks] = useState<{ id: number; original: string; short: string; traffic: number }[]>([]);
+  const [filteredLinks, setFilteredLinks] = useState<typeof allLinks>([]);
+
+  // Fetch all links when panel opens
+  useEffect(() => {
+    if (!showAllLinksPanel || !user?.userId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/shorten/read?userId=${user.userId}`);
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.links)) {
+          setAllLinks(data.links);
+          setFilteredLinks(data.links);
+        } else {
+          setErrorMsg(data.error || "Failed to fetch links.");
+        }
+      } catch {
+        setErrorMsg("Failed to fetch links.");
+      }
+    })();
+  }, [showAllLinksPanel, user?.userId]);
+
+  // Search logic (client-side)
+  useEffect(() => {
+    if (!search.trim()) {
+      setFilteredLinks(allLinks);
+    } else {
+      const s = search.trim().toLowerCase();
+      setFilteredLinks(
+        allLinks.filter(
+          l =>
+            l.original.toLowerCase().includes(s) ||
+            l.short.toLowerCase().includes(s)
+        )
+      );
+    }
+  }, [search, allLinks]);
+
+  // Select all logic (by id)
+  function handleSelectAll() {
+    if (selected.length === filteredLinks.length) {
+      setSelected([]);
+    } else {
+      setSelected(filteredLinks.map(l => l.id));
+    }
+  }
+  function handleSelect(id: number) {
+    setSelected(selected.includes(id) ? selected.filter(i => i !== id) : [...selected, id]);
+  }
+
+  // Edit logic
+  function handleEdit(row: typeof allLinks[0]) {
+    setEditId(row.id);
+    setEditData({ original: row.original, short: row.short });
+  }
+  function handleCancelEdit() {
+    setEditId(null);
+    setEditData({ original: "", short: "" });
+  }
+  async function handleUpdate(id: number) {
+    if (!editData.original || !editData.short) return;
+    try {
+      // The backend expects a POST to /api/shorten/update with { id, originalUrl, short }
+      const res = await fetch("/api/shorten/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, originalUrl: editData.original, short: editData.short }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAllLinks(allLinks.map(link => link.id === id ? { ...link, ...editData } : link));
+        setFilteredLinks(filteredLinks.map(link => link.id === id ? { ...link, ...editData } : link));
+        setEditId(null);
+        setEditData({ original: "", short: "" });
+      } else {
+        setErrorMsg(data.error || "Failed to update link.");
+      }
+    } catch {
+      setErrorMsg("Something went wrong.");
+    }
+  }
+
+  // Delete logic
+  function openDeleteDialog(id?: number) {
+    setShowDeleteDialog(true);
+    setSelected(id ? [id] : selected);
+  }
+  function closeDeleteDialog() {
+    setShowDeleteDialog(false);
+    setSelected([]);
+  }
+  async function handleConfirmDelete() {
+    closeDeleteDialog();
+    try {
+      // Find the short codes for selected ids
+      const toDelete = allLinks.filter(link => selected.includes(link.id));
+      const results = await Promise.all(
+        toDelete.map(link =>
+          fetch("/api/shorten/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ short: link.short }),
+          })
+        )
+      );
+      const successfulIds: number[] = [];
+      for (let i = 0; i < results.length; i++) {
+        if (results[i].ok) {
+          successfulIds.push(toDelete[i].id);
+        }
+      }
+      setAllLinks(allLinks.filter(link => !successfulIds.includes(link.id)));
+      setFilteredLinks(filteredLinks.filter(link => !successfulIds.includes(link.id)));
+      setSelected([]);
+      if (successfulIds.length !== selected.length) {
+        setErrorMsg("Some links could not be deleted. Please try again.");
+      }
+    } catch {
+      setErrorMsg("Failed to delete links.");
+    }
   }
 
   return (
@@ -516,6 +645,37 @@ export default function Home() {
         ))}
       </div>
 
+      {/* Show All Links Button */}
+      {user && user.sessionId && (
+        <div className="w-full flex justify-center mt-[-20px] mb-12 pointer-events-none">
+          <div className="pointer-events-auto">
+            <button
+              type="button"
+              className="flex items-center gap-3 bg-[#2acfcf] hover:bg-[#3be8e8] text-white font-extrabold px-10 py-4 rounded-full shadow-lg text-lg sm:text-xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-cyan-200 border-4 border-white"
+              style={{
+                fontFamily: "var(--font-poppins)",
+                boxShadow: "0 8px 32px 0 rgba(44,207,207,0.15)",
+                letterSpacing: "0.02em",
+              }}
+              onClick={() => setShowAllLinksPanel(true)}
+            >
+              {/* Modern List icon */}
+              <svg
+                className="w-7 h-7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                viewBox="0 0 24 24"
+              >
+                <rect x="4" y="6" width="16" height="2" rx="1" fill="currentColor" />
+                <rect x="4" y="11" width="16" height="2" rx="1" fill="currentColor" />
+                <rect x="4" y="16" width="16" height="2" rx="1" fill="currentColor" />
+              </svg>
+              <span>Show All Links</span>
+            </button>
+          </div>
+        </div>
+      )}
       {/* Advanced Statistics */}
       <section className="text-center mb-20 px-2 sm:px-4">
         <div className="max-w-7xl mx-auto w-full">
@@ -967,6 +1127,263 @@ export default function Home() {
                 Sign Up
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* All Links Panel */}
+      {showAllLinksPanel && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          {/* Blurry glass background */}
+          <div
+            className="absolute inset-0 bg-[#232127]/70 backdrop-blur-[16px] transition-all"
+            onClick={() => setShowAllLinksPanel(false)}
+          />
+          <div className="relative z-10 w-full max-w-5xl mx-auto">
+            <div className="bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl p-8 flex flex-col items-center relative animate-fade-in max-h-[85vh] overflow-hidden border border-gray-100">
+              {/* Error Panel */}
+              {errorMsg && (
+                <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-[#ffeaea] border border-[#ffbdbd] text-[#d32f2f] px-6 py-3 rounded-full flex items-center gap-3 shadow-lg z-20 font-medium ring-1 ring-[#ffd6d6]">
+                  <svg className="w-5 h-5 text-[#d32f2f]" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />
+                  </svg>
+                  <span>{errorMsg}</span>
+                  <button
+                    className="ml-2 rounded-full hover:bg-[#ffd6d6] p-1 transition"
+                    onClick={() => setErrorMsg("")}
+                    aria-label="Close error"
+                  >
+                    <svg className="w-4 h-4 text-[#d32f2f]" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              {/* Top Bar */}
+              <div className="w-full flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+                {/* Left: Close Button */}
+                <button
+                  className="flex items-center gap-2 bg-[#232127] hover:bg-[#3b3054] text-white font-semibold px-6 py-2 rounded-full shadow transition text-base focus:ring-2 focus:ring-cyan-300"
+                  onClick={() => setShowAllLinksPanel(false)}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Close
+                </button>
+                {/* Center: Search Bar */}
+                <div className="flex-1 flex justify-center">
+                  <div className="relative w-full max-w-md">
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder="Search links..."
+                      className="w-full pl-12 pr-4 py-2 rounded-full border border-gray-200 bg-[#f5f6fa] text-gray-900 focus:ring-2 focus:ring-cyan-300 focus:border-cyan-300 transition text-base shadow-sm"
+                    />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-3.5-3.5" />
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+                {/* Right: Select All & Delete */}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className={`flex items-center gap-2 bg-[#00d2ff] hover:bg-[#00b4d8] text-white font-semibold px-6 py-2 rounded-full shadow transition text-base focus:ring-2 focus:ring-cyan-300`}
+                    onClick={handleSelectAll}
+                  >
+                    <span className="relative flex items-center">
+                      {/* Custom Checkbox */}
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded border-2 border-[#00b4d8] bg-white mr-2">
+                        {selected.length === filteredLinks.length && filteredLinks.length > 0 && (
+                          <svg className="w-4 h-4 text-[#00b4d8]" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </span>
+                    </span>
+                    <span className="font-semibold">Select All</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex items-center gap-2 bg-[#ff6b6b] hover:bg-[#fa5252] text-white font-semibold px-6 py-2 rounded-full shadow transition text-base focus:ring-2 focus:ring-red-300 disabled:opacity-50`}
+                    onClick={() => openDeleteDialog()}
+                    disabled={selected.length === 0}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6v12a2 2 0 002 2h4a2 2 0 002-2V6m-6 0V4a2 2 0 012-2h0a2 2 0 012 2v2" />
+                    </svg>
+                    <span className="font-semibold">Delete</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="w-full overflow-auto rounded-2xl border border-gray-100 bg-white shadow-inner max-h-[55vh]">
+                <table className="min-w-full text-left" style={{ fontFamily: "var(--font-poppins)" }}>
+                  <thead>
+                    <tr className="bg-[#f5f6fa] text-gray-700 text-base">
+                      <th className="py-3 px-4 font-semibold rounded-tl-2xl">Original</th>
+                      <th className="py-3 px-4 font-semibold">Short</th>
+                      <th className="py-3 px-4 font-semibold">Traffic</th>
+                      <th className="py-3 px-4 font-semibold text-center">Actions</th>
+                      <th className="py-3 px-4 font-semibold text-center rounded-tr-2xl">Select</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLinks.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="text-center py-8 text-gray-400">No links found.</td>
+                      </tr>
+                    ) : (
+                      filteredLinks.map((row, idx) => (
+                        <tr
+                          key={row.id}
+                          className={`transition ${selected.includes(row.id) ? "bg-[#e6f7fa]" : idx % 2 === 0 ? "bg-[#f9fafb]" : "bg-white"} ${editId === row.id ? "ring-2 ring-cyan-300 bg-cyan-50" : "hover:bg-[#f0fbff]"}`}
+                        >
+                          {/* Original */}
+                          <td className="py-3 px-4 align-middle max-w-xs break-all text-gray-700">
+                            <input
+                              type="text"
+                              className={`w-full bg-transparent border-none outline-none font-medium ${editId === row.id ? "bg-white border border-cyan-300 rounded px-2 py-1 shadow" : ""}`}
+                              value={editId === row.id ? editData.original : row.original}
+                              readOnly={editId !== row.id}
+                              onChange={e => setEditData({ ...editData, original: e.target.value })}
+                            />
+                          </td>
+                          {/* Short */}
+                          <td className="py-3 px-4 align-middle max-w-xs break-all text-cyan-600 font-semibold">
+                            <input
+                              type="text"
+                              className={`w-full bg-transparent border-none outline-none ${editId === row.id ? "bg-white border border-cyan-300 rounded px-2 py-1 shadow" : ""}`}
+                              value={editId === row.id ? editData.short : row.short}
+                              readOnly={editId !== row.id}
+                              onChange={e => setEditData({ ...editData, short: e.target.value })}
+                            />
+                          </td>
+                          {/* Traffic */}
+                          <td className="py-3 px-4 align-middle text-center text-gray-500 font-semibold">
+                            <input
+                              type="text"
+                              className="w-20 bg-transparent border-none outline-none text-center"
+                              value={row.traffic}
+                              readOnly
+                            />
+                          </td>
+                          {/* Actions */}
+                          <td className="py-3 px-4 align-middle text-center">
+                            {editId === row.id ? (
+                              <div className="flex items-center gap-2 justify-center">
+                                {/* Update */}
+                                <button
+                                  className="bg-[#00d2ff] hover:bg-[#00b4d8] text-white rounded-full p-2 shadow transition focus:ring-2 focus:ring-cyan-300"
+                                  onClick={() => handleUpdate(row.id)}
+                                  title="Update"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </button>
+                                {/* Cancel */}
+                                <button
+                                  className="bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-full p-2 shadow transition focus:ring-2 focus:ring-gray-300"
+                                  onClick={handleCancelEdit}
+                                  title="Cancel"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 justify-center">
+                                {/* Edit */}
+                                <button
+                                  className="bg-[#e3f7fd] hover:bg-[#b2e9fa] text-[#00b4d8] rounded-full p-2 shadow transition focus:ring-2 focus:ring-cyan-300"
+                                  onClick={() => handleEdit(row)}
+                                  title="Edit"
+                                >
+                                  {/* Modern edit icon */}
+                                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                                    <path d="M4 21h4.586a1 1 0 00.707-.293l10.414-10.414a2 2 0 000-2.828l-2.172-2.172a2 2 0 00-2.828 0L4.293 15.707A1 1 0 004 16.414V21z" stroke="#00b4d8" strokeWidth="2"/>
+                                    <path d="M14.828 7.172l2 2" stroke="#00b4d8" strokeWidth="2"/>
+                                  </svg>
+                                </button>
+                                {/* Delete */}
+                                <button
+                                  className="bg-[#ffeaea] hover:bg-[#ffd6d6] text-[#ff6b6b] rounded-full p-2 shadow transition focus:ring-2 focus:ring-red-300"
+                                  onClick={() => openDeleteDialog(row.id)}
+                                  title="Delete"
+                                >
+                                  {/* Modern delete icon */}
+                                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                                    <path d="M3 6h18" stroke="#ff6b6b" strokeWidth="2" strokeLinecap="round"/>
+                                    <rect x="5" y="7" width="14" height="12" rx="2" stroke="#ff6b6b" strokeWidth="2"/>
+                                    <path d="M9 11v4M15 11v4" stroke="#ff6b6b" strokeWidth="2" strokeLinecap="round"/>
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                          {/* Select */}
+                          <td className="py-3 px-4 align-middle text-center">
+                            <button
+                              className={`inline-flex items-center justify-center w-6 h-6 rounded border-2 border-[#00b4d8] bg-white focus:outline-none focus:ring-2 focus:ring-cyan-300 transition
+                                ${editId !== null ? "opacity-50 cursor-not-allowed" : ""}
+                              `}
+                              onClick={() => {
+                                if (editId === null) handleSelect(row.id);
+                              }}
+                              aria-label={selected.includes(row.id) ? "Deselect" : "Select"}
+                              type="button"
+                              disabled={editId !== null}
+                              tabIndex={editId !== null ? -1 : 0}
+                            >
+                              {selected.includes(row.id) && (
+                                <svg className="w-4 h-4 text-[#00b4d8]" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Delete Confirmation Dialog */}
+            {showDeleteDialog && (
+              <div className="fixed inset-0 z-[110] flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/40" />
+                <div className="relative bg-white rounded-2xl shadow-xl px-8 py-8 flex flex-col items-center">
+                  <div className="text-lg font-bold text-gray-800 mb-2 text-center">
+                    Are you sure you want to delete?
+                  </div>
+                  <div className="flex gap-4 mt-4">
+                    <button
+                      className="bg-[#ff6b6b] hover:bg-[#fa5252] text-white font-bold px-6 py-2 rounded-full shadow transition focus:ring-2 focus:ring-red-300"
+                      onClick={handleConfirmDelete}
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-6 py-2 rounded-full shadow transition focus:ring-2 focus:ring-gray-300"
+                      onClick={closeDeleteDialog}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

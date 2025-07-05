@@ -15,5 +15,5 @@ export async function POST(req: Request) {
     { where: { short, isDeleted: false } }
   );
 
-  return NextResponse.json({ deleted: true });
+  return NextResponse.json({ deleted: true }, { status: 200 });
 }
